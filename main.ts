@@ -2,8 +2,8 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 import * as ShowdownObsidian from './showdown-obsidian';
 import { Converter } from 'showdown';
 import { request } from 'http';
-import * as Showdown from 'showdown';
 import { extractYaml } from 'obsidian-parse';
+import { update } from 'confluence-api';
 
 //Showdown.extension('obsidian', ShowdownObsidian.obsidian);
 
@@ -26,7 +26,7 @@ export default class ConfluencePlugin extends Plugin {
 		this.addCommand({
 			id: 'confluence-publish-command',
 			name: 'Publish to confluence',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const confluenceUrl = getConfluencePage(view.data);
 				console.log(confluenceUrl);
 				if (typeof confluenceUrl === 'undefined') {
@@ -38,6 +38,12 @@ export default class ConfluencePlugin extends Plugin {
 				const html = converter.makeHtml(view.data);
 
 				console.log(`html: ${html}`);
+				try {
+					const resp = await update({url: confluenceUrl, text: html});
+					console.log(resp);
+				} catch (error) {
+					console.error(error);
+				}
 			}
 		});
 

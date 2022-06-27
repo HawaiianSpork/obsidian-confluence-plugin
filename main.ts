@@ -1,9 +1,21 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, parseYaml } from 'obsidian';
+import * as ShowdownObsidian from './showdown-obsidian';
 import { Converter } from 'showdown';
+import { request } from 'http';
+import * as Showdown from 'showdown';
+import { extractYaml } from 'obsidian-parse';
+
+//Showdown.extension('obsidian', ShowdownObsidian.obsidian);
 
 interface ConfluencePluginSettings {
 	confluenceToken: string;
 }
+
+const getConfluencePage = (text: string): string | undefined => {
+	const yamlObj = parseYaml(extractYaml(text));
+	return yamlObj['confluenceUrl'];
+}
+
 
 export default class ConfluencePlugin extends Plugin {
 	settings: ConfluencePluginSettings;
@@ -11,23 +23,21 @@ export default class ConfluencePlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-
 		this.addCommand({
 			id: 'confluence-publish-command',
 			name: 'Publish to confluence',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const converter = new Converter();
+				const confluenceUrl = getConfluencePage(view.data);
+				console.log(confluenceUrl);
+				if (typeof confluenceUrl === 'undefined') {
+					new SampleModal(this.app).open();
+				}
+
+				const converter = new Converter({tables: true, noHeaderId: true});
+				converter.addExtension(ShowdownObsidian.obsidian);
 				const html = converter.makeHtml(view.data);
 
-				console.log(`htmll: ${html}`);
+				console.log(`html: ${html}`);
 			}
 		});
 
@@ -54,7 +64,7 @@ class SampleModal extends Modal {
 
 	onOpen() {
 		const {contentEl} = this;
-		contentEl.setText('Woah!');
+		contentEl.setText('Confluence Url not defined.');
 	}
 
 	onClose() {

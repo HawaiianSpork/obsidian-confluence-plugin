@@ -80,6 +80,7 @@ export default class ConfluencePlugin extends Plugin {
 						});
 						console.log(resp);
 						// TODO update version in yaml
+						new Notice(`Page Published to Confluence: ${resp}`, 10000);
 					} else {
 						const resp = await create({
 							title: title,
@@ -90,9 +91,11 @@ export default class ConfluencePlugin extends Plugin {
 						});
 						console.log(resp);
 						// TODO write pageId and version to yaml
+						new Notice(`Page Published to Confluence: ${resp}`, 10000);
 					}
 				} catch (error) {
 					console.error(error);
+					new Notice(`Error updating confluence: ${error}`, 10000);
 				}
 			}
 		});

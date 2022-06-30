@@ -45,7 +45,13 @@ export const create = (opts: CreateRequest): Promise<string> => {
 				body = body + chunk;
 			});
 			res.on('end', () => {
-				resolve(body);
+				console.log(`statusCode: ${res.statusCode}`);
+				const result = JSON.parse(body);
+				if (res.statusCode === 200) {
+					resolve(result);
+				} else {
+					reject(result.message);
+				}
 			});
 		});
 		
@@ -104,7 +110,13 @@ export const update = (opts: UpdateRequest): Promise<string> => {
 				body = body + chunk;
 			});
 			res.on('end', () => {
-				resolve(body);
+				console.log(`statusCode: ${res.statusCode}`);
+				const result = JSON.parse(body);
+				if (res.statusCode === 200) {
+					resolve(result);
+				} else {
+					reject(result.message);
+				}
 			});
 		});
 		

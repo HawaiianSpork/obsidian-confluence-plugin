@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@types/showdown": "^2.0.0",
+		"open": "^8.4.0",
 		"showdown": "^2.1.0"
 	}
 }

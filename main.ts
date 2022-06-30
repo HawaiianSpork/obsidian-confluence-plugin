@@ -1,19 +1,33 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, parseYaml } from 'obsidian';
 import * as ShowdownObsidian from './showdown-obsidian';
 import { Converter } from 'showdown';
-import { request } from 'http';
 import { extractYaml } from 'obsidian-parse';
-import { update } from 'confluence-api';
-
-//Showdown.extension('obsidian', ShowdownObsidian.obsidian);
+import { create, update } from 'confluence-api';
+import 'open';
 
 interface ConfluencePluginSettings {
+	confluenceUrl: string;
 	confluenceToken: string;
 }
 
-const getConfluencePage = (text: string): string | undefined => {
+const DEFAULT_SETTINGS: ConfluencePluginSettings = {
+	confluenceUrl: '',
+	confluenceToken: ''
+}
+
+const getConfluencePageId = (text: string): string | undefined => {
 	const yamlObj = parseYaml(extractYaml(text));
-	return yamlObj['confluenceUrl'];
+	return yamlObj['confluence']['pageId'];
+}
+
+const getConfluenceDataVersion = (text: string): number | undefined => {
+	const yamlObj = parseYaml(extractYaml(text));
+	return parseInt(yamlObj['confluence']['dataVersion']);
+}
+
+const getConfluenceSpaceKey = (text: string): string | undefined => {
+	const yamlObj = parseYaml(extractYaml(text));
+	return yamlObj['confluence']['spaceKey'];
 }
 
 
@@ -24,23 +38,59 @@ export default class ConfluencePlugin extends Plugin {
 		await this.loadSettings();
 
 		this.addCommand({
+			id: 'confluence-open-page',
+			name: 'Open in confluence',
+			editorCallback(editor, view) {
+				const confluenceUrl = getConfluencePageId(view.data);
+				// TODO switch to _links/webui
+				open(confluenceUrl);
+			},
+		})
+
+
+		this.addCommand({
 			id: 'confluence-publish-command',
 			name: 'Publish to confluence',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				const confluenceUrl = getConfluencePage(view.data);
-				console.log(confluenceUrl);
-				if (typeof confluenceUrl === 'undefined') {
+				const confluencePageId = getConfluencePageId(view.data);
+				const confluenceSpaceKey = getConfluenceSpaceKey(view.data);
+				if (typeof confluencePageId === 'undefined' && typeof confluenceSpaceKey === 'undefined') {
 					new SampleModal(this.app).open();
 				}
+
+				const confluenceDataVersion = getConfluenceDataVersion(view.data) || 1;
 
 				const converter = new Converter({tables: true, noHeaderId: true});
 				converter.addExtension(ShowdownObsidian.obsidian);
 				const html = converter.makeHtml(view.data);
 
+				const title = view.file.basename;
+
+				console.log(`title: ${title}`);
 				console.log(`html: ${html}`);
 				try {
-					const resp = await update({url: confluenceUrl, text: html});
-					console.log(resp);
+					if (confluencePageId) {
+						const resp = await update({
+							title: title,
+							host: this.settings.confluenceUrl,
+							pageId: confluencePageId,
+							text: html,
+							token: this.settings.confluenceToken,
+							version: confluenceDataVersion
+						});
+						console.log(resp);
+						// TODO update version in yaml
+					} else {
+						const resp = await create({
+							title: title,
+							host: this.settings.confluenceUrl,
+							spaceKey: confluenceSpaceKey,
+							text: html,
+							token: this.settings.confluenceToken
+						});
+						console.log(resp);
+						// TODO write pageId and version to yaml
+					}
 				} catch (error) {
 					console.error(error);
 				}
@@ -55,7 +105,7 @@ export default class ConfluencePlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = await this.loadData();
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
 	async saveSettings() {
@@ -93,6 +143,17 @@ class ConfluenceSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', {text: 'Settings for Confluence Plugin.'});
+
+		new Setting(containerEl)
+			.setName('Confluence URL')
+			.setDesc('url')
+			.addText(text => text
+				.setPlaceholder('https://somehost')
+				.setValue(this.plugin.settings.confluenceUrl)
+				.onChange(async (value) => {
+					this.plugin.settings.confluenceUrl = value;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(containerEl)
 			.setName('Confluence Private Token')
